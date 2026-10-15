@@ -1,0 +1,89 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String         @id @default(cuid())
+  email              String         @unique
+  passwordHash       String
+  name               String?
+  languagePreference String         @default("en")
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  assessments        Assessment[]
+  journalEntries     JournalEntry[]
+}
+
+model Assessment {
+  id                   String   @id @default(cuid())
+  userId               String?
+  user                 User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  language             String   @default("en")
+  primaryCategory      String
+  symptoms             String   // JSON stringified array of selected symptoms
+  duration             String
+  onsetType            String
+  additionalContext    String?
+  freeTextDescription  String?
+  source               String   @default("gemini") // 'gemini' | 'clinical_fallback'
+  symptomSummary       String
+  whatItMeans          String
+  possibleExplanations String   // JSON stringified array of possible explanations
+  actionableNextSteps  String   // JSON stringified array of next steps
+  whenToSeekCare       String   // JSON stringified array of red flags
+  doctorQuestions      String   // JSON stringified array of doctor questions
+  glossary             String?  // JSON stringified array of { term, explanation }
+  createdAt            DateTime @default(now())
+}
+
+model JournalEntry {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  guestId    String?
+  date       String   // YYYY-MM-DD
+  cycleDay   Int?
+  cyclePhase String?  // "Menstrual" | "Follicular" | "Ovulation" | "Luteal"
+  flow       String?  // "None" | "Spotting" | "Light" | "Medium" | "Heavy"
+  painLevel  Int      @default(0) // 0-10
+  mood       String?  // "Calm" | "Energetic" | "Anxious" | "Irritable" | "Low"
+  symptoms   String   // JSON array of logged symptoms
+  sleepHours Float?
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId, date])
+  @@index([guestId, date])
+}
+
+model Clinic {
+  id               String  @id @default(cuid())
+  name             String
+  specialty        String
+  city             String
+  state            String?
+  address          String
+  phone            String?
+  email            String?
+  website          String?
+  consultationType String  @default("In-Person & Tele-consult")
+  isVerified       Boolean @default(true)
+  notes            String?
+}
+
+model PcosTopic {
+  id               String   @id @default(cuid())
+  slug             String   @unique
+  title            String
+  category         String
+  summary          String
+  content          String
+  sourceReferences String   // JSON stringified array of { title, url, organization }
+  createdAt        DateTime @default(now())
+}
