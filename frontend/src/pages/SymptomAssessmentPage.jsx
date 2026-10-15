@@ -28,6 +28,7 @@ import {
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import VoiceInputButton from '../components/VoiceInputButton';
+import { getFallbackAssessment } from '../services/clientAssessmentEngine';
 import TextToSpeechButton from '../components/TextToSpeechButton';
 import DiagnosticHierarchy from '../components/DiagnosticHierarchy';
 
@@ -212,33 +213,51 @@ export default function SymptomAssessmentPage() {
     setIsSubmitting(true);
     setSubmitError('');
 
+    const payload = {
+      language,
+      category: selectedCategory,
+      symptoms: selectedSymptoms.length > 0 ? selectedSymptoms : ['Unspecified symptom'],
+      duration,
+      onsetType,
+      freeTextDescription,
+      additionalContext
+    };
+
     try {
       const response = await fetch('/api/symptoms/assess', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({
-          language,
-          category: selectedCategory,
-          symptoms: selectedSymptoms.length > 0 ? selectedSymptoms : ['Unspecified symptom'],
-          duration,
-          onsetType,
-          freeTextDescription,
-          additionalContext
-        })
+        body: JSON.stringify(payload)
       });
 
-      const json = await response.json();
-      if (!response.ok || !json.success) {
-        throw new Error(json.error || 'Failed to complete assessment');
+      const contentType = response.headers.get('content-type') || '';
+      if (response.ok && contentType.includes('application/json')) {
+        const json = await response.json();
+        if (json.success && json.data) {
+          setResults(json.data);
+          setCurrentStep(5);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          return;
+        }
       }
 
-      setResults(json.data);
+      // If backend returned non-JSON, 404 HTML, or error, seamlessly engage client clinical engine
+      console.warn('API returned non-JSON or status error, using resilient client assessment engine');
+      const fallbackData = getFallbackAssessment(payload);
+      setResults(fallbackData);
       setCurrentStep(5);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
-      console.error('Assessment submission error:', err);
-      setSubmitError(err.message || 'An error occurred while analyzing symptoms. Please try again.');
+      console.warn('Network or API issue, engaging resilient client assessment engine:', err);
+      try {
+        const fallbackData = getFallbackAssessment(payload);
+        setResults(fallbackData);
+        setCurrentStep(5);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch (fallbackErr) {
+        setSubmitError(fallbackErr.message || 'An error occurred while analyzing symptoms. Please try again.');
+      }
     } finally {
       setIsSubmitting(false);
     }

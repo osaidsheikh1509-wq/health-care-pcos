@@ -94,7 +94,7 @@ app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 
 // Health check endpoint
-app.get('/api/health', (req, res) => {
+app.get(['/api/health', '/health'], (req, res) => {
   res.json({
     status: 'healthy',
     service: 'Yajnaseni Health API',
@@ -104,11 +104,11 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// API Routes
-app.use('/api/symptoms', symptomsRouter);
-app.use('/api/journal', journalRouter);
-app.use('/api/clinics', clinicsRouter);
-app.use('/api/auth', authRouter);
+// API Routes (supports both direct and /api prefixed routes)
+app.use(['/api/symptoms', '/symptoms'], symptomsRouter);
+app.use(['/api/journal', '/journal'], journalRouter);
+app.use(['/api/clinics', '/clinics'], clinicsRouter);
+app.use(['/api/auth', '/auth'], authRouter);
 
 // 404 handler for API routes
 app.use('/api/*', (req, res) => {
